@@ -127,3 +127,14 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+data/movies_list/2010_movies_list_df
+data/movies_list/2011_movies_list_df
+data/movies_list/2012_movies_list_df
+data/movies_list/2013_movies_list_df
+data/movies_list/2014_movies_list_df
+data/movies_list/2015_movies_list_df
+data/movies_list/2016_movies_list_df
+data/movies_list/2017_movies_list_df
+data/movies_list/2018_movies_list_df
+data/movies_list/2019_movies_list_df
+notebooks/tester.ipynb
