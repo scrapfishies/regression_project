@@ -1,9 +1,9 @@
+from bs4 import BeautifulSoup
+from os import path
 import pandas as pd
 import requests
 import pickle
 import time
-from bs4 import BeautifulSoup
-from os import path
 
 def all_movies_for_year(year):
 	# initialize primary list
