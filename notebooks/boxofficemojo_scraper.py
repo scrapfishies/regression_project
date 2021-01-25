@@ -4,6 +4,7 @@ import pandas as pd
 import requests
 import pickle
 import time
+import re
 
 def all_movies_for_year(year):
 	# initialize primary list
@@ -20,11 +21,10 @@ def all_movies_for_year(year):
 	for row in movie_table.find_all('tr')[1:]:
 		title = row.find_all('td')[1].find('a').text
 		link = row.find_all('td')[1].find('a').get('href').split('?')[0][9:-1]
-		release_date = row.find_all('td')[8].text
 		distributor = row.find_all('td')[9].text[:-2]
-		movie_list.append([link, title, release_date, distributor])
+		movie_list.append([link, title, distributor])
 
-	return pd.DataFrame(movie_list, columns=['link', 'title', 'release_date', 'distributor'])
+	return pd.DataFrame(movie_list, columns=['link', 'title', 'distributor'])
 
 def generate_yearly_movies_index(start_year, end_year):
 	for year in range(end_year, start_year - 1, -1):
@@ -35,7 +35,7 @@ def generate_yearly_movies_index(start_year, end_year):
 			yearly_movies_index = all_movies_for_year(year)
 			pickle.dump(yearly_movies_index, open(f'../data/yearly_index/{year}_index', 'wb'))
 
-def retrieve_movie_information(link, title, release_date, distributor):
+def retrieve_movie_information(link, title, distributor):
 	# retrieve site data
 	data = requests.get(f'https://www.boxofficemojo.com/release/{link}')
 
@@ -51,6 +51,14 @@ def retrieve_movie_information(link, title, release_date, distributor):
 		budget = budget.parent.findNext('span').text.replace(',','')[1:]
 	else:
 		budget = None
+
+	release_date = metrics_table.find(text=re.compile('Release Date'))
+	if release_date:
+		release_year = release_date.parent.findNext('span').text.split(' - ')[0][-4:]
+		release_date = release_date.parent.findNext('span').text.split(',')[0]
+	else:
+		release_date = None
+		release_year = None
 
 	rating = metrics_table.find(text='MPAA')
 	if rating:
@@ -70,17 +78,17 @@ def retrieve_movie_information(link, title, release_date, distributor):
 	else:
 		release_duration = None
 
-	return [title,domestic_gross,distributor,budget,release_date,rating,genre,release_duration]
+	return [title,domestic_gross,distributor,budget,release_date,release_year,rating,genre,release_duration]
 
 def generate_movies_2d_list(yearly_movies_list_df):
 	year_list = []
 
 	for idx, row in yearly_movies_list_df.iterrows():
-		if (idx > 0) & (idx % 15 == 0):
+		if (idx > 0) & (idx % 25 == 0):
 			print(f'Pausing at idx {idx}')
-			time.sleep(3)
+			time.sleep(5)
 			print('Resuming')
-		year_list.append(retrieve_movie_information(row.link, row.title, row.release_date, row.distributor))
+		year_list.append(retrieve_movie_information(row.link, row.title, row.distributor))
 	
 	return year_list
 
@@ -102,7 +110,7 @@ def generate_yearly_lists(start_year, end_year):
 				pickle.dump(year_list, open(f'../data/yearly_2d_lists/{year}_list', 'wb'))
 
 def generate_yearly_dataframes(start_year, end_year):
-	columns = ['title','domestic_gross', 'distributor', 'budget', 'release_date', 'rating', 'genre', 'release_duration']
+	columns = ['title','domestic_gross', 'distributor', 'budget', 'release_date', 'release_year', 'rating', 'genre', 'release_duration']
 
 	generate_yearly_movies_index(start_year, end_year)
 
@@ -118,3 +126,47 @@ def generate_yearly_dataframes(start_year, end_year):
 			df = pd.DataFrame(year_list, columns=columns)
 
 			pickle.dump(df, open(f'../data/yearly_scraped_movie_info/{year}_df', 'wb'))
+
+	if path.exists(f'../data/yearly_scraped_movie_info/combined_df'):
+		print('combined_df exists')
+	else:
+		combined_list = []
+		
+		for year in range(end_year, start_year - 1, -1):
+			with open(f'../data/yearly_2d_lists/{year}_list','rb') as read_file:
+				year_list = pickle.load(read_file)
+
+			combined_list = combined_list + year_list
+
+		combined_df = pd.DataFrame(combined_list, columns = columns)
+
+		pickle.dump(combined_df, open(f'../data/yearly_scraped_movie_info/combined_df', 'wb'))
+
+def movies_by_yearly_season(start_year, end_year):
+	# initialize primary list
+	movie_list = []
+
+	for year in range(end_year, start_year - 1, -1):
+		seasons = ['winter', 'spring', 'summer', 'fall', 'holiday']
+
+		for season in seasons:
+			data = requests.get(f'https://www.boxofficemojo.com/season/{season}/{year}')
+
+			# load data into bs4
+			soup = BeautifulSoup(data.text, features="lxml")
+
+			movie_table = soup.find('div', { 'id': 'table' }).find('div').find('table')
+
+			for row in movie_table.find_all('tr')[1:]:
+				movie_id = row.find_all('td')[1].find('a').text + f'_{year}'
+				movie_list.append([movie_id, season])
+
+			print(f'{year} {season} complete')
+
+			print(f'movie_list size is now - {len(movie_list)}')
+
+	movies_by_season = pd.DataFrame(movie_list, columns = ['movie_id','season'])
+
+	pickle.dump(movies_by_season, open(f'data/movies_by_season/seasons_df', 'wb'))
+
+movies_by_yearly_season(2010, 2019)

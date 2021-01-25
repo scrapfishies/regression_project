@@ -132,3 +132,7 @@ data/yearly_2d_lists
 data/yearly_index
 data/yearly_scraped_movie_info
 data/the_numbers
+.vscode/settings.json
+data/combined_df
+data/joined_df
+data/movies_by_season
